@@ -1,2 +1,59 @@
 # forread
 for read
+
+
+
+torchrun \
+  --nnodes=2 \
+  --nproc_per_node=1 \
+  --node_rank=1 \
+  --master_addr="192.168.1.10" \
+  --master_port=29500 \
+  dp.py
+
+
+
+
+
+  import torch
+import deepspeed
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model_name = "unsloth/Llama-3.2-11B-Vision-Instruct"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+model = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    torch_dtype=torch.float16
+)
+
+# DeepSpeed initialize
+model_engine, optimizer, _, _ = deepspeed.initialize(
+    model=model,
+    model_parameters=model.parameters(),
+    config="ds_config.json"
+)
+
+prompt = "O'zbekistonning poytaxti nima?"
+inputs = tokenizer(prompt, return_tensors="pt").to(model_engine.device)
+
+with torch.no_grad():
+    outputs = model_engine.generate(
+        **inputs,
+        max_new_tokens=50
+    )
+
+print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+
+
+
+
+{
+    "train_batch_size": 2,
+    "fp16": {
+      "enabled": true
+    },
+    "zero_optimization": {
+      "stage": 2
+    }
+  }
