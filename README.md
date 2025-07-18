@@ -125,7 +125,9 @@ sudo firewall-cmd --add-port=29500/tcp --permanent
 #####################################
 sudo firewall-cmd --reload
 
+##################################################################################################################################################################################
 
 
-
+sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1 |||||||||||||||||||||||
+sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
 
