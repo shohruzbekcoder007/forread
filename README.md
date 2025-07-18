@@ -115,6 +115,8 @@ sudo ufw allow 10000:10100/tcp
 export NCCL_DEBUG=INFO   ############
 export NCCL_SOCKET_IFNAME=eth0 
 ##########################################
+sudo lsof -i :29500
+
 
 
 
