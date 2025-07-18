@@ -116,6 +116,14 @@ export NCCL_DEBUG=INFO   ############
 export NCCL_SOCKET_IFNAME=eth0 
 ##########################################
 sudo lsof -i :29500
+#######################################
+sudo ufw allow 29500/tcp
+#######################################
+sudo ufw allow 29500/udp
+#######################################
+sudo firewall-cmd --add-port=29500/tcp --permanent
+#####################################
+sudo firewall-cmd --reload
 
 
 
