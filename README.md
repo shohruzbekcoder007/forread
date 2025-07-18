@@ -57,3 +57,15 @@ print(tokenizer.decode(outputs[0], skip_special_tokens=True))
       "stage": 2
     }
   }
+
+  ####################################################################################################################################################################
+pip install --pre torch torchvision torchaudio \
+  --index-url https://download.pytorch.org/whl/nightly/cu128
+
+
+pip install deepspeed
+python -m deepspeed.env_report
+pip install transformers
+huggingface-cli login
+nima_hf_MrHQDeldqsxQlQSfosngJqaHYvTUzrYQEr
+
