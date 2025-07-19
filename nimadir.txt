@@ -1,22 +1,13 @@
 import torch
-import deepspeed
 from transformers import AutoModelForCausalLM, AutoTokenizer
-
-# DeepSpeed distributed environment ni initialize qilish
-deepspeed.init_distributed()
 
 model_name = "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit"
 
 # Tokenizer va modelni yuklash
 tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float16, device_map="auto")
 
-# DeepSpeed inference uchun initialize qilish
-model = deepspeed.init_inference(model,
-                                 mp_size=2,  # agar 2 ta GPU (tensor parallel) ishlatilsa
-                                 dtype=torch.float16,
-                                 replace_method="auto",
-                                 replace_with_kernel_inject=True)
+# Modelni yuklash (bnb-4bit quantized model uchun device_map="auto")
+model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto")
 
 # Matnni tokenizatsiya qilish
 inputs = tokenizer("Assalomu alaykum, bugun ob-havo", return_tensors="pt").to("cuda")
