@@ -1,25 +1,31 @@
+# ds.py
+
 import torch
 import deepspeed
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
-# DeepSpeed distributed environment initialize
-deepspeed.init_distributed()
+# 🚀 1. Model nomi
+model_name = "meta-llama/Llama-2-7b"
 
-model_name = "meta-llama/Llama-3-8b"
+# 🚀 2. Tokenizer yuklash (SentencePiece uchun use_fast=False)
+tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
 
-# Tokenizer va FP16 modelni yuklash
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float16)
+# 🚀 3. Model yuklash
+model = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    torch_dtype=torch.float16,  # GPU uchun optimallashtirish
+    device_map="auto"           # DeepSpeed bilan GPU mapping
+)
 
-# DeepSpeed init_inference
-model = deepspeed.init_inference(model,
-                                 tensor_parallel={"tp_size": 2},
-                                 dtype=torch.float16,
-                                 replace_with_kernel_inject=True)
+# 🚀 4. DeepSpeed konfiguratsiya (oddiy)
+ds_engine = deepspeed.initialize(model=model)[0]
 
-# Input
-inputs = tokenizer("Assalomu alaykum, bugun ob-havo", return_tensors="pt").to("cuda")
+# 🚀 5. Sinov uchun oddiy input
+inputs = tokenizer("Assalomu alaykum, dunyo!", return_tensors="pt").to(ds_engine.device)
 
-# Generate
-outputs = model.generate(**inputs, max_new_tokens=50)
+# 🚀 6. Forward pass
+with torch.no_grad():
+    outputs = ds_engine.generate(**inputs, max_new_tokens=20)
+
+# 🚀 7. Natija
 print(tokenizer.decode(outputs[0], skip_special_tokens=True))
