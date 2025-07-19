@@ -4,53 +4,34 @@ import torch
 import deepspeed
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-model_name = "mistralai/Voxtral-Mini-3B-2507"
+model_name = "mistralai/Mistral-7B-v0.1"
 
-# 🔧 Tokenizerni oddiy chaqirish
+# Initialize tokenizer
 tokenizer = AutoTokenizer.from_pretrained(
     model_name,
-    use_fast=False,  # LLaMA modellarida fast tokenizers ba'zan xatolik beradi
-    trust_remote_code=True
+    use_fast=True,
+    padding_side="left"
 )
 
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
     torch_dtype=torch.float16,
-    device_map="auto",
-    trust_remote_code=True
+    device_map="auto"
 )
 
-# DeepSpeed konfiguratsiyasi
-ds_engine, optimizer, _, _ = deepspeed.initialize(
-    model=model,
-    model_parameters=model.parameters(),
-    use_auth_token=True,
-    config={
-        "train_micro_batch_size_per_gpu": 1,
-        "gradient_accumulation_steps": 1,
-        "optimizer": {
-            "type": "AdamW",
-            "params": {
-                "lr": 1e-5
-            }
-        },
-        "zero_optimization": {
-            "stage": 2
-        }
-    }
+# DeepSpeed inference konfiguratsiyasi
+model = deepspeed.init_inference(
+    model,
+    mp_size=1,  # GPU soni
+    dtype=torch.float16,
+    replace_method='auto',
+    replace_with_kernel_inject=True
 )
 
 # Sinov prompti
-inputs = tokenizer("Assalomu alaykum, dunyo!", return_tensors="pt").to(ds_engine.device)
+inputs = tokenizer("Assalomu alaykum, dunyo!", return_tensors="pt").to(device='cuda')
 
 with torch.no_grad():
-    outputs = ds_engine.generate(**inputs, max_new_tokens=20)
+    outputs = model.generate(**inputs, max_new_tokens=20)
 
 print(tokenizer.decode(outputs[0], skip_special_tokens=True))
-
-
-
-pip install --upgrade transformers sentencepiece tiktoken
-pip install transformers==4.41.2 sentencepiece tiktoken --upgrade
-huggingface-cli cache delete meta-llama/Llama-2-7b
-rm -rf ~/.cache/huggingface/hub/models--meta-llama--Llama-2-7b
