@@ -1,19 +1,20 @@
 import torch
+import deepspeed
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-model_name = "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit"
+deepspeed.init_distributed()
 
-# Tokenizer va modelni yuklash
+model_name = "meta-llama/Llama-2-7b-hf"  # FP16 model
+
 tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float16)
 
-# Modelni yuklash (bnb-4bit quantized model uchun device_map="auto")
-model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto")
+model = deepspeed.init_inference(model,
+                                 tensor_parallel={"tp_size": 2},  # yangi syntax
+                                 dtype=torch.float16,
+                                 replace_with_kernel_inject=True)
 
-# Matnni tokenizatsiya qilish
 inputs = tokenizer("Assalomu alaykum, bugun ob-havo", return_tensors="pt").to("cuda")
-
-# Model orqali generatsiya qilish
 outputs = model.generate(**inputs, max_new_tokens=50)
 
-# Natijani chiqarish
 print(tokenizer.decode(outputs[0], skip_special_tokens=True))
