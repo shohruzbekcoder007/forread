@@ -47,3 +47,10 @@ with torch.no_grad():
     outputs = ds_engine.generate(**inputs, max_new_tokens=20)
 
 print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+
+
+
+pip install --upgrade transformers sentencepiece tiktoken
+pip install transformers==4.41.2 sentencepiece tiktoken --upgrade
+huggingface-cli cache delete meta-llama/Llama-2-7b
+rm -rf ~/.cache/huggingface/hub/models--meta-llama--Llama-2-7b
