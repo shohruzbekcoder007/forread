@@ -132,3 +132,11 @@ if local_rank == 0:
 
 
 CUDA_VISIBLE_DEVICES=0 torchrun --nnodes=2 --nproc_per_node=1 --node_rank=1 --master_addr="172.16.8.38" --master_port=29500 ds.py
+
+
+(env) prog@ai-1:~/Documents/DeepSpeed/deepspeed1$ nvcc --version
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2025 NVIDIA Corporation
+Built on Wed_Jan_15_19:20:09_PST_2025
+Cuda compilation tools, release 12.8, V12.8.61
+Build cuda_12.8.r12.8/compiler.35404655_0
