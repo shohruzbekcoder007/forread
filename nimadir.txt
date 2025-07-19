@@ -4,18 +4,16 @@ import torch
 import deepspeed
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-# 🚀 1. Model nomi
 model_name = "meta-llama/Llama-2-7b"
 
-# 🚀 2. Tokenizer yuklash (SentencePiece uchun use_fast=False)
+# 🚨 Fast tokenizerni bloklash uchun tokenizer_class argumentidan foydalan
 tokenizer = AutoTokenizer.from_pretrained(
     model_name,
     use_fast=False,
-    local_files_only=False,  # cachedan emas, huggingface'dan tekshiradi
+    tokenizer_type="LlamaTokenizer",
     trust_remote_code=True
 )
 
-# 🚀 3. Model yuklash
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
     torch_dtype=torch.float16,
@@ -23,10 +21,11 @@ model = AutoModelForCausalLM.from_pretrained(
     trust_remote_code=True
 )
 
-# 🚀 4. DeepSpeed konfiguratsiya
+# DeepSpeed konfiguratsiya
 ds_engine, optimizer, _, _ = deepspeed.initialize(
     model=model,
     model_parameters=model.parameters(),
+    use_auth_token=True,
     config={
         "train_micro_batch_size_per_gpu": 1,
         "gradient_accumulation_steps": 1,
@@ -42,12 +41,9 @@ ds_engine, optimizer, _, _ = deepspeed.initialize(
     }
 )
 
-# 🚀 5. Sinov input
 inputs = tokenizer("Assalomu alaykum, dunyo!", return_tensors="pt").to(ds_engine.device)
 
-# 🚀 6. Forward pass
 with torch.no_grad():
     outputs = ds_engine.generate(**inputs, max_new_tokens=20)
 
-# 🚀 7. Natija
 print(tokenizer.decode(outputs[0], skip_special_tokens=True))
