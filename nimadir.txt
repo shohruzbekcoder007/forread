@@ -8,6 +8,11 @@ import torch.distributed as dist
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 def setup_distributed():
+    # Set NCCL environment variables
+    os.environ['NCCL_DEBUG'] = 'INFO'
+    os.environ['NCCL_SOCKET_IFNAME'] = 'eth0'  # Change if needed
+    os.environ['NCCL_IB_DISABLE'] = '1'
+    
     # Get environment variables
     local_rank = int(os.getenv('LOCAL_RANK', '0'))
     world_size = int(os.getenv('WORLD_SIZE', '2'))
@@ -20,22 +25,15 @@ def setup_distributed():
     device = f'cuda:{local_rank}'
     torch.cuda.set_device(local_rank)
     
-    # Initialize process group with explicit device_id
-    init_method = 'env://'
+    # Initialize process group
     torch.distributed.init_process_group(
         backend='nccl',
-        init_method=init_method,
-        world_size=world_size,
-        rank=rank
+        init_method='env://',
+        timeout=datetime.timedelta(seconds=60)
     )
     
-    # Create process group for this device
-    options = torch.distributed.ProcessGroupNCCL.Options()
-    options.is_high_priority_stream = True
-    torch.distributed.barrier(device_ids=[local_rank])
-    
     print(f'Process group initialized: rank={rank}, local_rank={local_rank}, '
-          f'world_size={world_size}, device={device}, init_method={init_method}')
+          f'world_size={world_size}, device={device}')
     
     return local_rank, world_size, rank, device
 
@@ -128,6 +126,7 @@ if local_rank == 0:
         except Exception as e:
             print(f"Xato yuz berdi: {e}")
             break
+
 
 
 
