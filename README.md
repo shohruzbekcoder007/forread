@@ -148,5 +148,49 @@ torchrun \
   --master_port=29500 \
   inference_ds.py
 
+#################################################################################################################################################################################
+
+
+import torch
+import deepspeed
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+deepspeed.init_distributed()
+
+model_name = "meta-llama/Llama-2-7b-hf"
+
+# DeepSpeed konfiguratsiyasi
+ds_config = {
+    "train_batch_size": 1,
+    "fp16": {
+        "enabled": True
+    },
+    "zero_optimization": {
+        "stage": 3,
+        "offload_param": {
+            "device": "none"
+        },
+        "overlap_comm": True,
+        "contiguous_gradients": True
+    },
+    "activation_checkpointing": {
+        "partition_activations": True,
+        "contiguous_memory_optimization": True
+    }
+}
+
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(model_name)
+
+model = deepspeed.init_inference(model,
+                                 mp_size=2,  # 2 ta node/gpu uchun
+                                 dtype=torch.float16,
+                                 replace_method="auto",
+                                 replace_with_kernel_inject=True,
+                                 config=ds_config)
+
+inputs = tokenizer("Assalomu alaykum, bugun ob-havo", return_tensors="pt").to('cuda')
+outputs = model.generate(**inputs, max_new_tokens=50)
+print(tokenizer.decode(outputs[0]))
 
 
