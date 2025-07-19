@@ -36,19 +36,27 @@ tokenizer = AutoTokenizer.from_pretrained(
     padding_side="left"
 )
 
-model = AutoModelForCausalLM.from_pretrained(
-    model_name,
-    torch_dtype=torch.float16,
-    device_map="auto"
-)
+# Load model on rank 0 first
+if rank == 0:
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        torch_dtype=torch.float16,
+        device_map=None  # Don't use auto device mapping
+    )
+else:
+    model = None
+
+# Synchronize to ensure model is loaded on rank 0
+torch.distributed.barrier()
 
 # DeepSpeed inference config
 ds_config = {
     "tensor_parallel": {
-        "tp_size": 2
+        "tp_size": world_size  # Use world_size for tensor parallelism
     },
     "dtype": torch.float16,
-    "replace_with_kernel_inject": True
+    "replace_with_kernel_inject": True,
+    "replace_method": "auto"
 }
 
 # Initialize DeepSpeed inference engine
@@ -86,3 +94,8 @@ if local_rank == 0:
         except Exception as e:
             print(f"Xato yuz berdi: {e}")
             break
+
+
+
+
+torchrun --nnodes=2 --nproc_per_node=1 --node_rank=1 --master_addr="172.16.8.38" --master_port=29500 ds.py
