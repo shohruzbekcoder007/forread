@@ -4,7 +4,7 @@ import torch
 import deepspeed
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-model_name = "meta-llama/Llama-2-7b"
+model_name = "mistralai/Voxtral-Mini-3B-2507"
 
 # 🔧 Tokenizerni oddiy chaqirish
 tokenizer = AutoTokenizer.from_pretrained(
