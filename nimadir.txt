@@ -2,19 +2,24 @@ import torch
 import deepspeed
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+# DeepSpeed distributed environment initialize
 deepspeed.init_distributed()
 
-model_name = "meta-llama/Llama-2-7b-hf"  # FP16 model
+model_name = "meta-llama/Llama-3-8b"
 
+# Tokenizer va FP16 modelni yuklash
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float16)
 
+# DeepSpeed init_inference
 model = deepspeed.init_inference(model,
-                                 tensor_parallel={"tp_size": 2},  # yangi syntax
+                                 tensor_parallel={"tp_size": 2},
                                  dtype=torch.float16,
                                  replace_with_kernel_inject=True)
 
+# Input
 inputs = tokenizer("Assalomu alaykum, bugun ob-havo", return_tensors="pt").to("cuda")
-outputs = model.generate(**inputs, max_new_tokens=50)
 
+# Generate
+outputs = model.generate(**inputs, max_new_tokens=50)
 print(tokenizer.decode(outputs[0], skip_special_tokens=True))
