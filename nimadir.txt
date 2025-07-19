@@ -6,11 +6,10 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 
 model_name = "meta-llama/Llama-2-7b"
 
-# 🚨 Fast tokenizerni bloklash uchun tokenizer_class argumentidan foydalan
+# 🔧 Tokenizerni oddiy chaqirish
 tokenizer = AutoTokenizer.from_pretrained(
     model_name,
-    use_fast=False,
-    tokenizer_type="LlamaTokenizer",
+    use_fast=False,  # LLaMA modellarida fast tokenizers ba'zan xatolik beradi
     trust_remote_code=True
 )
 
@@ -21,7 +20,7 @@ model = AutoModelForCausalLM.from_pretrained(
     trust_remote_code=True
 )
 
-# DeepSpeed konfiguratsiya
+# DeepSpeed konfiguratsiyasi
 ds_engine, optimizer, _, _ = deepspeed.initialize(
     model=model,
     model_parameters=model.parameters(),
@@ -41,6 +40,7 @@ ds_engine, optimizer, _, _ = deepspeed.initialize(
     }
 )
 
+# Sinov prompti
 inputs = tokenizer("Assalomu alaykum, dunyo!", return_tensors="pt").to(ds_engine.device)
 
 with torch.no_grad():
