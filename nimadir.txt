@@ -8,23 +8,34 @@ import torch.distributed as dist
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 def setup_distributed():
+    # Get environment variables
     local_rank = int(os.getenv('LOCAL_RANK', '0'))
     world_size = int(os.getenv('WORLD_SIZE', '2'))
     rank = int(os.getenv('RANK', '0'))
     
     # Set device
+    if not torch.cuda.is_available():
+        raise RuntimeError('CUDA is not available')
+    
     device = f'cuda:{local_rank}'
     torch.cuda.set_device(local_rank)
     
-    # Initialize process group
+    # Initialize process group with explicit device_id
+    init_method = 'env://'
     torch.distributed.init_process_group(
         backend='nccl',
-        init_method='env://',
-        timeout=datetime.timedelta(minutes=10)
+        init_method=init_method,
+        world_size=world_size,
+        rank=rank
     )
     
+    # Create process group for this device
+    options = torch.distributed.ProcessGroupNCCL.Options()
+    options.is_high_priority_stream = True
+    torch.distributed.barrier(device_ids=[local_rank])
+    
     print(f'Process group initialized: rank={rank}, local_rank={local_rank}, '
-          f'world_size={world_size}, device={device}')
+          f'world_size={world_size}, device={device}, init_method={init_method}')
     
     return local_rank, world_size, rank, device
 
@@ -55,8 +66,16 @@ if rank == 0:
     ).to(device)
     print('Model loaded successfully')
 
-# Simple barrier to sync processes
-torch.distributed.barrier()
+# Sync processes with device IDs
+torch.distributed.barrier(device_ids=[local_rank])
+
+# Add cleanup handler
+def cleanup():
+    if torch.distributed.is_initialized():
+        torch.distributed.destroy_process_group()
+
+import atexit
+atexit.register(cleanup)
 
 # DeepSpeed inference config
 ds_config = {
@@ -111,4 +130,5 @@ if local_rank == 0:
             break
 
 
-torchrun --nnodes=2 --nproc_per_node=1 --node_rank=1 --master_addr="172.16.8.38" --master_port=29500 ds.py
+
+CUDA_VISIBLE_DEVICES=0 torchrun --nnodes=2 --nproc_per_node=1 --node_rank=1 --master_addr="172.16.8.38" --master_port=29500 ds.py
