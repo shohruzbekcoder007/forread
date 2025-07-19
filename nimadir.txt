@@ -8,19 +8,41 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 model_name = "meta-llama/Llama-2-7b"
 
 # 🚀 2. Tokenizer yuklash (SentencePiece uchun use_fast=False)
-tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
+tokenizer = AutoTokenizer.from_pretrained(
+    model_name,
+    use_fast=False,
+    local_files_only=False,  # cachedan emas, huggingface'dan tekshiradi
+    trust_remote_code=True
+)
 
 # 🚀 3. Model yuklash
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
-    torch_dtype=torch.float16,  # GPU uchun optimallashtirish
-    device_map="auto"           # DeepSpeed bilan GPU mapping
+    torch_dtype=torch.float16,
+    device_map="auto",
+    trust_remote_code=True
 )
 
-# 🚀 4. DeepSpeed konfiguratsiya (oddiy)
-ds_engine = deepspeed.initialize(model=model)[0]
+# 🚀 4. DeepSpeed konfiguratsiya
+ds_engine, optimizer, _, _ = deepspeed.initialize(
+    model=model,
+    model_parameters=model.parameters(),
+    config={
+        "train_micro_batch_size_per_gpu": 1,
+        "gradient_accumulation_steps": 1,
+        "optimizer": {
+            "type": "AdamW",
+            "params": {
+                "lr": 1e-5
+            }
+        },
+        "zero_optimization": {
+            "stage": 2
+        }
+    }
+)
 
-# 🚀 5. Sinov uchun oddiy input
+# 🚀 5. Sinov input
 inputs = tokenizer("Assalomu alaykum, dunyo!", return_tensors="pt").to(ds_engine.device)
 
 # 🚀 6. Forward pass
@@ -29,6 +51,3 @@ with torch.no_grad():
 
 # 🚀 7. Natija
 print(tokenizer.decode(outputs[0], skip_special_tokens=True))
-
-
- pip install tiktoken protobuf blobfile
