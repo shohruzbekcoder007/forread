@@ -29,3 +29,6 @@ with torch.no_grad():
 
 # 🚀 7. Natija
 print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+
+
+ pip install tiktoken protobuf blobfile
