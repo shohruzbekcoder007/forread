@@ -137,3 +137,16 @@ sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
 iperf3 -c SERVER_IP
 
 
+#################################################################################################################################################################################
+
+
+torchrun \
+  --nnodes=2 \
+  --nproc_per_node=1 \
+  --node_rank=1 \
+  --master_addr="192.168.1.10" \
+  --master_port=29500 \
+  inference_ds.py
+
+
+
