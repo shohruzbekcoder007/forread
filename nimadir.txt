@@ -2,33 +2,37 @@
 
 import os
 import torch
+import datetime
 import deepspeed
 import torch.distributed as dist
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-# Get environment variables
-local_rank = int(os.getenv('LOCAL_RANK', '0'))
-world_size = int(os.getenv('WORLD_SIZE', '2'))
-rank = int(os.getenv('RANK', '0'))
-master_addr = os.getenv('MASTER_ADDR', '172.16.8.38')
-master_port = os.getenv('MASTER_PORT', '29500')
+def setup_distributed():
+    local_rank = int(os.getenv('LOCAL_RANK', '0'))
+    world_size = int(os.getenv('WORLD_SIZE', '2'))
+    rank = int(os.getenv('RANK', '0'))
+    
+    # Set device
+    device = f'cuda:{local_rank}'
+    torch.cuda.set_device(local_rank)
+    
+    # Initialize process group
+    torch.distributed.init_process_group(
+        backend='nccl',
+        init_method='env://',
+        timeout=datetime.timedelta(minutes=10)
+    )
+    
+    print(f'Process group initialized: rank={rank}, local_rank={local_rank}, '
+          f'world_size={world_size}, device={device}')
+    
+    return local_rank, world_size, rank, device
 
-# Set cuda device first
-torch.cuda.set_device(local_rank)
-
-# Initialize process group with explicit settings
+# Initialize distributed environment
 try:
-    if not torch.distributed.is_initialized():
-        init_method = f'tcp://{master_addr}:{master_port}'
-        torch.distributed.init_process_group(
-            backend='nccl',
-            init_method=init_method,
-            world_size=world_size,
-            rank=rank
-        )
-        print(f'Initialized process group: rank={rank}, world_size={world_size}, init_method={init_method}')
+    local_rank, world_size, rank, device = setup_distributed()
 except Exception as e:
-    print(f'Failed to initialize process group: {str(e)}')
+    print(f'Failed to initialize distributed environment: {str(e)}')
     raise e
 
 model_name = "mistralai/Mistral-7B-v0.1"
@@ -40,20 +44,19 @@ tokenizer = AutoTokenizer.from_pretrained(
     padding_side="left"
 )
 
-# Load model on rank 0 first
+# Load model on all ranks
+model = None
 if rank == 0:
+    print(f'Loading model on rank {rank}...')
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         torch_dtype=torch.float16,
-        device_map=None  # Don't use auto device mapping
-    )
-    # Move model to GPU
-    model = model.to(f'cuda:{local_rank}')
-else:
-    model = None
+        device_map=None
+    ).to(device)
+    print('Model loaded successfully')
 
-# Make sure all processes are ready before proceeding
-torch.distributed.barrier(device_ids=[local_rank])
+# Simple barrier to sync processes
+torch.distributed.barrier()
 
 # DeepSpeed inference config
 ds_config = {
@@ -72,19 +75,25 @@ model = deepspeed.init_inference(
 )
 
 def generate_response(prompt):
-    inputs = tokenizer(prompt, return_tensors="pt").to(device='cuda')
+    # Move inputs to correct device
+    inputs = tokenizer(prompt, return_tensors="pt").to(device)
     
     with torch.no_grad():
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=100,  # Uzunroq javob
-            temperature=0.7,     # Ijodkorlik darajasi
-            top_p=0.9,          # Sampling uchun
-            do_sample=True,      # Har safar turli javob
-            pad_token_id=tokenizer.eos_token_id
-        )
-    
-    return tokenizer.decode(outputs[0], skip_special_tokens=True)
+        try:
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=100,
+                temperature=0.7,
+                top_p=0.9,
+                do_sample=True,
+                pad_token_id=tokenizer.eos_token_id
+            )
+            response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        except Exception as e:
+            print(f'Error in generate: {str(e)}')
+            response = 'Xatolik yuz berdi'
+            
+    return response
 
 # Faqat rank 0 node input/output qiladi
 if local_rank == 0:
